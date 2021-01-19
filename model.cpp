@@ -99,3 +99,15 @@ vec3 Model::normal(const int iface, const int nthvert) const {
     return norms_[facet_nrm_[iface*3+nthvert]];
 }
 
+std::vector<int> Model::face(const int i)const{
+  std::vector<int> test;
+  test.push_back(Model::facet_vrt_[i]);
+  test.push_back(Model::facet_vrt_[i+1]);
+  test.push_back(Model::facet_vrt_[i+2]);
+  return test;
+}
+
+int Model::vrt(const int i)const{
+    return Model::facet_vrt_[i];
+}
+

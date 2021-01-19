@@ -20,7 +20,7 @@ private:
 public:
     Model(const std::string filename);
     int nverts() const;
-    int nfaces() const;
+    int nfaces() const; // number of triangle
     vec3 normal(const int iface, const int nthvert) const;  // per triangle corner normal vertex
     vec3 normal(const vec2 &uv) const;                      // fetch the normal vector from the normal map texture
     vec3 vert(const int i) const;
@@ -29,6 +29,7 @@ public:
     TGAColor diffuse(const vec2 &uv) const;
     double specular(const vec2 &uv) const;
     std::vector<int> face(const int i)const;
+    int vrt(const int i)const;
 
 };
 #endif //__MODEL_H__
