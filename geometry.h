@@ -38,6 +38,9 @@ template<int n> vec<n> operator*(const double& rhs, const vec<n> &lhs) {
     return ret;
 }
 
+
+
+
 template<int n> vec<n> operator*(const vec<n>& lhs, const double& rhs) {
     vec<n> ret = lhs;
     for (int i=n; i--; ret[i]*=rhs);
@@ -89,6 +92,7 @@ template<> struct vec<3> {
     vec(double X, double Y, double Z) : x(X), y(Y), z(Z) {}
     double& operator[](const int i)       { assert(i>=0 && i<3); return i==0 ? x : (1==i ? y : z); }
     double  operator[](const int i) const { assert(i>=0 && i<3); return i==0 ? x : (1==i ? y : z); }
+    vec operator ^(const vec &v) const { return vec(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
     double norm2() const { return (*this)*(*this) ; }
     double norm()  const { return std::sqrt(norm2()); }
     vec & normalize() { *this = (*this)/norm(); return *this; }

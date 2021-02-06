@@ -26,11 +26,10 @@ public:
     vec3 vert(const int i) const;
     vec3 vert(const int iface, const int nthvert) const;
     vec2 uv(const int iface, const int nthvert) const;
-    TGAColor diffuse(const vec2 &uv) const;
+    TGAColor diffuse(const vec2 &uv) const; // retourne la couleur du vecteur uv
     double specular(const vec2 &uv) const;
     std::vector<int> face(const int i)const;
     int vrt(const int i)const;
-
 };
 #endif //__MODEL_H__
 
