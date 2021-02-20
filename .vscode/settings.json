@@ -44,10 +44,12 @@
         "sstream": "cpp",
         "stdexcept": "cpp",
         "streambuf": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "ctime": "cpp",
+        "iomanip": "cpp"
     },
 
     "code-runner.executorMap": {
-        "cpp": "g++ *.cpp -o $fileNameWithoutExt && $dir$fileNameWithoutExt && start main.exe && start output.tga"
+        "cpp": "g++ *.cpp -o $fileNameWithoutExt && $dir$fileNameWithoutExt && start main.exe && start output.tga && start zbuffer.tga"
     }
 }
