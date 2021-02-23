@@ -74,9 +74,10 @@ int Model::nfaces()
     return (int)faces_.size();
 }
 
-/*Vec3f Model::norm(int i, int nthvert){
-
-}*/
+Vec3f Model::norm(int i, int nthvert){
+    int idx = faces_[i][nthvert][2];
+    return norms_[idx].normalize();
+}
 
 void Model::load_texture(std::string filename, const char *suffix, TGAImage &img)
 {

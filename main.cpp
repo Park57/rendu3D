@@ -6,7 +6,8 @@
 
 Model *model = NULL;
 int *zbuffer = NULL;
-Vec3f light_dir(0, 0, -1); // vecteur de lumière
+
+Vec3f light_dir = Vec3f(1,-1,1).normalize(); // vecteur de lumière
 
 const int depth = 255;
 const int width = 600;
@@ -14,7 +15,7 @@ const int height = 600;
 
 Vec3f up(0,1,0);
 Vec3f center(0,0,0);
-Vec3f eye(1,1,1);
+Vec3f eye(0,0,1);
 
 Matrix lookat(Vec3f up, Vec3f center, Vec3f eye){
     Vec3f z = (eye-center).normalize(); // z' is given by the vector ce (do not forget to normalize it, it helps later)
@@ -110,7 +111,7 @@ Vec3f barycentre(Vec3i A, Vec3i B, Vec3i C)
     int taille_totale = t2.y - t0.y;  
 }*/
 
-void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,TGAImage &image, TGAImage &zbuffer)
+void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,float it0, float it1, float it2,TGAImage &image, int *zbuffer)
 {
     if (t0.y==t1.y && t0.y==t2.y) return; // i dont care about degenerate triangles
     if (t0.y>t1.y) std::swap(t0, t1);
@@ -127,25 +128,32 @@ void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,TGAI
         Vec2i A2 = uv0 +(uv2-uv0)*alpha;
         Vec2i B2 = second_half ? uv1 + (uv2 - uv1) * beta : uv0 + (uv1 - uv0) * beta;
         Vec3i B = second_half ? t1 + (t2-t1)*beta : t0 + (t1-t0)*beta;
-        if (A.x > B.x)
+
+        float itA = it0 + (it2-it0)*alpha;
+        float itB = second_half ? it1 +   (it2-it1)*beta : it0 + (it1-it0)*beta;
+        if (A.x > B.x){
             std::swap(A, B);
-        if (A2.x > B2.x)
-            std::swap(A2, B2);
+            std::swap(A2,B2);
+            std::swap(itA,itB);
+        }
+            
         for (int j = A.x; j <= B.x; j++)
         {
             float phi = B.x == A.x ? 1. : (float)(j - A.x) / (float)(B.x - A.x);
-            float phi2 = B2.x == A2.x ? 1. : (float)(j - A2.x) / (float)(B2.x - A2.x);
             Vec3i P = A + (B - A) * phi;
-
-            Vec2i P2 =  A2 + (B2 - A2) * phi2;
+            Vec2i P2 =  A2 + (B2 - A2) * phi;
+            float itP =    itA  + (itB-itA)*phi;
             P2.x = j;
             P2.y = uv0.y + i;
             
             P.x = j;
             P.y = t0.y + i; // a hack to fill holes (due to int cast precision problems)
             int idx = j + (t0.y + i) * width;
-            zbuffer.set(P.x, P.y, TGAColor(P.z));
-            image.set(P.x, P.y, model->diffuse(P2)); // attention, due to int casts t0.y+i != A.y
+            if (P.x>=width||P.y>=height||P.x<0||P.y<0) continue;
+            if (zbuffer[idx]<P.z) {
+                zbuffer[idx] = P.z;
+                image.set(P.x, P.y, TGAColor(255, 255, 255, 255)*itP); // attention, due to int casts t0.y+i != A.y
+            }
         }
     }
 }
@@ -155,7 +163,11 @@ int main(int argc, char **argv)
     model = new Model("obj/african_head.obj");
 
     TGAImage image(width, height, TGAImage::RGB);
-    TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
+
+    zbuffer = new int[width*height];
+    for (int i=0; i<width*height; i++) {
+        zbuffer[i] = std::numeric_limits<int>::min();
+    }
 
     Matrix Projection = Matrix::identity(4);
     Matrix Lookat = lookat(up,center,eye);
@@ -167,20 +179,32 @@ int main(int argc, char **argv)
         Vec3i screen_coords[3];
         Vec3f world_coords[3];
         Vec2i uv[3];
+        float intensity[3];
         std::vector<int> face = model->face(i);
         for (int j = 0; j < 3; j++)
         {
+            intensity[j] = model->norm(i,j)*light_dir;
             uv[j] = model->uv(i, j);
             Vec3f v = model->vert(face[j]);
             screen_coords[j] = Vec3f(ViewPort*Projection*Lookat*Matrix(v));
             world_coords[j] = v;
+
         }                                                                       // Normalisation du vecteur n
-        triangle(screen_coords[0], screen_coords[1], screen_coords[2],uv[0], uv[1], uv[2], image, zbuffer);
+        triangle(screen_coords[0], screen_coords[1], screen_coords[2],uv[0], uv[1], uv[2],intensity[0], intensity[1],intensity[2], image, zbuffer);
+    }
+
+    { // dump z-buffer (debugging purposes only)
+        TGAImage zbimage(width, height, TGAImage::GRAYSCALE);
+        for (int i=0; i<width; i++) {
+            for (int j=0; j<height; j++) {
+                zbimage.set(i, j, TGAColor(zbuffer[i+j*width]));
+            }
+        }
+        zbimage.flip_vertically(); // i want to have the origin at the left bottom corner of the image
+        zbimage.write_tga_file("zbuffer.tga");
     }
     image.flip_vertically();
     image.write_tga_file("output.tga");
-    zbuffer.flip_vertically();
-    zbuffer.write_tga_file("zbuffer.tga");
     delete model;
     return 0;
 }
