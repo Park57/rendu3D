@@ -12,31 +12,30 @@ const int depth = 255;
 const int width = 600;
 const int height = 600;
 
-extern Matrix ModelView;
 Vec3f up(0,1,0);
 Vec3f center(0,0,0);
-Vec3f eye(1,1,3);
+Vec3f eye(1,1,1);
 
-void lookat(Vec3f up, Vec3f center, Vec3f eye){
+Matrix lookat(Vec3f up, Vec3f center, Vec3f eye){
     Vec3f z = (eye-center).normalize(); // z' is given by the vector ce (do not forget to normalize it, it helps later)
-    Vec3f x = cross(up,z).normalize(); //  x'? Simply by a cross product between u and z'
-    Vec3f y = cross(x,z).normalize(); // y', such that it is orthogonal to already calculated x' and z'
+    Vec3f x = (up^z).normalize(); //  x'? Simply by a cross product between u and z'
+    Vec3f y = (z^x).normalize(); // y', such that it is orthogonal to already calculated x' and z'
 
     //Now it suffices to get any point with coordinates (x,y,z,1) in the model frame, multiply it by the matrix ModelView and we get the coordinates in the camera frame!
-    Matrix M = Matrix::identity();
-    Matrix T = Matrix::identity();
+    Matrix M = Matrix::identity(4);
+    Matrix T = Matrix::identity(4);
     for(int i = 0; i < 3; i++){
         M[0][i] = x[i];
         M[1][i] = y[i];
         M[2][i] = z[i];
         T[i][3] = -center[i];
     }
-    ModelView = M*T;
+    return M*T;
 
 }
 
 Matrix viewPort(int x, int y, int w, int h){
-    Matrix m = Matrix::identity();
+    Matrix m = Matrix::identity(4);
 
     m[0][0] = w/2.f;
     m[1][1] = h/2.f;
@@ -97,20 +96,6 @@ Vec3f barycentre(Vec3i A, Vec3i B, Vec3i C)
     return Vec3f(xG, yG, zG);
 }
 
-Vec3f barycentric(Vec3i A, Vec3i B, Vec3i C, Vec3i P)
-{
-    Vec3i s[2];
-    for (int i = 2; i--;)
-    {
-        s[i][0] = C[i] - A[i];
-        s[i][1] = B[i] - A[i];
-        s[i][2] = A[i] - P[i];
-    }
-    Vec3f u = cross(s[0], s[1]);
-    if (std::abs(u[2]) > 1e-2) // dont forget that u[2] is integer. If it is zero then triangle ABC is degenerate
-        return Vec3f(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
-    return Vec3f(-1, 1, 1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
-}
 
 /*void trianglee(Vec3i t0, Vec3i t1, Vec3i t2,TGAColor color, TGAImage &image, TGAImage &zbuffer){
     if(t0.y == t1.y && t0.y == t2.y) // Triangle dégénérés 
@@ -160,7 +145,7 @@ void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,TGAI
             P.y = t0.y + i; // a hack to fill holes (due to int cast precision problems)
             int idx = j + (t0.y + i) * width;
             zbuffer.set(P.x, P.y, TGAColor(P.z));
-            image.set(P2.x, P2.y, model->diffuse(P2)); // attention, due to int casts t0.y+i != A.y
+            image.set(P.x, P.y, model->diffuse(P2)); // attention, due to int casts t0.y+i != A.y
         }
     }
 }
@@ -172,6 +157,11 @@ int main(int argc, char **argv)
     TGAImage image(width, height, TGAImage::RGB);
     TGAImage zbuffer(width, height, TGAImage::GRAYSCALE);
 
+    Matrix Projection = Matrix::identity(4);
+    Matrix Lookat = lookat(up,center,eye);
+    Matrix ViewPort = viewPort(width/8 ,height/8,width*3/4,height*3/4);
+    Projection[3][2] = -1.f/(eye-center).norm();
+
     for (int i = 0; i < model->nfaces(); i++)
     { // On parcourt tous les triangles
         Vec3i screen_coords[3];
@@ -182,16 +172,10 @@ int main(int argc, char **argv)
         {
             uv[j] = model->uv(i, j);
             Vec3f v = model->vert(face[j]);
-            screen_coords[j] = Vec3i((v.x + 1.) * width / 2., (v.y + 1.) * height / 2., (v.z + 1.) * depth / 2.);
+            screen_coords[j] = Vec3f(ViewPort*Projection*Lookat*Matrix(v));
             world_coords[j] = v;
-        }
-        Vec3f n = cross(world_coords[2] - world_coords[0], world_coords[1] - world_coords[0]); // cross product
-        n.normalize();                                                                         // Normalisation du vecteur n
-        float intensity = n * light_dir;
-        if (intensity > 0)
-        {
-            triangle(screen_coords[0], screen_coords[1], screen_coords[2],uv[0], uv[1], uv[2], image, zbuffer);
-        }
+        }                                                                       // Normalisation du vecteur n
+        triangle(screen_coords[0], screen_coords[1], screen_coords[2],uv[0], uv[1], uv[2], image, zbuffer);
     }
     image.flip_vertically();
     image.write_tga_file("output.tga");
