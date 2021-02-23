@@ -7,7 +7,7 @@
 Model *model = NULL;
 int *zbuffer = NULL;
 
-Vec3f light_dir = Vec3f(1,-1,1).normalize(); // vecteur de lumière
+Vec3f light_dir = Vec3f(1,1,1).normalize(); // vecteur de lumière
 
 const int depth = 255;
 const int width = 600;
@@ -97,6 +97,19 @@ Vec3f barycentre(Vec3i A, Vec3i B, Vec3i C)
     return Vec3f(xG, yG, zG);
 }
 
+Vec3f barycentric(Vec3i A, Vec3i B, Vec3i C, Vec3i P) {
+    Vec3i s[2];
+    for (int i=2; i--; ) {
+        s[i][0] = C[i]-A[i];
+        s[i][1] = B[i]-A[i];
+        s[i][2] = A[i]-P[i];
+    }
+    Vec3f u = s[0]^s[1];
+    if (std::abs(u[2])>1e-2) // dont forget that u[2] is integer. If it is zero then triangle ABC is degenerate
+        return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
+    return Vec3f(-1,1,1); // in this case generate negative coordinates, it will be thrown away by the rasterizator
+}
+
 
 /*void trianglee(Vec3i t0, Vec3i t1, Vec3i t2,TGAColor color, TGAImage &image, TGAImage &zbuffer){
     if(t0.y == t1.y && t0.y == t2.y) // Triangle dégénérés 
@@ -136,6 +149,8 @@ void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,floa
             std::swap(A2,B2);
             std::swap(itA,itB);
         }
+
+         
             
         for (int j = A.x; j <= B.x; j++)
         {
@@ -152,7 +167,7 @@ void triangle(Vec3i t0, Vec3i t1, Vec3i t2, Vec2i uv0, Vec2i uv1, Vec2i uv2,floa
             if (P.x>=width||P.y>=height||P.x<0||P.y<0) continue;
             if (zbuffer[idx]<P.z) {
                 zbuffer[idx] = P.z;
-                image.set(P.x, P.y, TGAColor(255, 255, 255, 255)*itP); // attention, due to int casts t0.y+i != A.y
+                image.set(P.x, P.y, model->diffuse(P2)*itP); // attention, due to int casts t0.y+i != A.y
             }
         }
     }
@@ -189,7 +204,7 @@ int main(int argc, char **argv)
             screen_coords[j] = Vec3f(ViewPort*Projection*Lookat*Matrix(v));
             world_coords[j] = v;
 
-        }                                                                       // Normalisation du vecteur n
+        }
         triangle(screen_coords[0], screen_coords[1], screen_coords[2],uv[0], uv[1], uv[2],intensity[0], intensity[1],intensity[2], image, zbuffer);
     }
 
